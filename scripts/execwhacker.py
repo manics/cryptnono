@@ -7,11 +7,12 @@ import argparse
 from concurrent.futures import Executor, ThreadPoolExecutor
 from enum import Enum
 import json
-from logging import DEBUG, INFO
+from logging import basicConfig, DEBUG, INFO
 import os
 from psutil import NoSuchProcess, process_iter
 import signal
 import structlog
+import sys
 import threading
 import time
 from functools import partial
@@ -287,19 +288,31 @@ def main():
     args = parser.parse_args()
 
     # https://www.structlog.org/en/stable/standard-library.html
+    basicConfig(
+        # structlog takes care of all content and rendering, so just output the message
+        format="%(message)s",
+        stream=sys.stdout,
+        level=DEBUG if args.debug else INFO,
+    )
+
     # https://www.structlog.org/en/stable/performance.html
     structlog.configure(
         cache_logger_on_first_use=True,
         processors=[
+            # Include 'level' key
             structlog.processors.add_log_level,
+            # Include UTC 'timestamp' key
             structlog.processors.TimeStamper(fmt="iso"),
+            # Render exceptions with traceback as a dict instead of plain text
             structlog.processors.dict_tracebacks,
-            structlog.processors.ExceptionRenderer(),
+            # Rename 'event' key which contains human-readable text to 'message'
+            structlog.processors.EventRenamer("message"),
+            # Render as JSON
             structlog.processors.JSONRenderer(),
         ],
         context_class=dict,
-        logger_factory=structlog.PrintLoggerFactory(),
-        wrapper_class=structlog.make_filtering_bound_logger(DEBUG if args.debug else INFO),
+        # Send rendered JSON to the standard library logging module for output
+        logger_factory=structlog.stdlib.LoggerFactory(),
     )
 
     # Initialise prometheus counters to 0 so they show up straight away
