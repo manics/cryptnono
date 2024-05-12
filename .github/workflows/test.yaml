@@ -58,7 +58,7 @@ jobs:
             --scan-existing 10 \
             --serve-metrics-port 12121
           sleep 10
-          docker logs cryptono
+          docker logs cryptono:test
 
       - name: Build self-changing test binary
         run: |
