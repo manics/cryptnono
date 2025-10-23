@@ -95,3 +95,13 @@ detectors:
       port: 12122
       # Add prometheus annotations to the pods
       prometheusScrape: true
+  combinedMetrics:
+    # Serve merged metrics on this port, use this if you want to scrape
+    # metrics for both execwhacker and tcpflowkiller
+    enabled: false
+    port: 12123
+    resources: {}
+    image:
+      repository: ghcr.io/manics/prometheus-metrics-combiner
+      tag: main
+    metricsPrefix: cryptnono

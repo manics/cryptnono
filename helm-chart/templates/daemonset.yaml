@@ -1,3 +1,6 @@
+{{- $prometheusExecwhacker := and .Values.detectors.execwhacker.enabled .Values.detectors.execwhacker.metrics.enabled .Values.detectors.execwhacker.metrics.prometheusScrape }}
+{{- $prometheusFlowkiller := and .Values.detectors.tcpflowkiller.enabled .Values.detectors.tcpflowkiller.metrics.enabled .Values.detectors.tcpflowkiller.metrics.prometheusScrape }}
+{{- $prometheusCombined := .Values.detectors.combinedMetrics.enabled }}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -14,12 +17,17 @@ spec:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
         checksum/config-flowkiller: {{ include (print $.Template.BasePath "/configmap-flowkiller.yaml") . | sha256sum }}
-        {{- if and .Values.detectors.execwhacker.enabled (and .Values.detectors.execwhacker.metrics.enabled .Values.detectors.execwhacker.metrics.prometheusScrape) }}
+        {{- if or $prometheusExecwhacker $prometheusFlowkiller $prometheusCombined }}
         prometheus.io/scrape: "true"
+        {{- if $prometheusCombined }}
+        prometheus.io/port: "{{ .Values.detectors.combinedMetrics.port }}"
+        {{- else if $prometheusExecwhacker }}
         prometheus.io/port: "{{ .Values.detectors.execwhacker.metrics.port }}"
+        {{- else }}
+        prometheus.io/port: "{{ .Values.detectors.tcpflowkiller.metrics.port }}"
+        {{- end }}
         prometheus.io/path: "/metrics"
-        {{- end}}
-        # TODO: .Values.detectors.tcpflowkiller.metrics.port
+        {{- end }}
         {{- with .Values.podAnnotations }}
         {{- . | toYaml | nindent 8 }}
         {{- end }}
@@ -205,6 +213,41 @@ spec:
               name: host-rootfs
               readOnly: true
             {{- end }}
+      {{- end }}
+      {{- if $prometheusCombined }}
+        - args:
+            - -port
+            - "{{ .Values.detectors.combinedMetrics.port }}"
+            {{- if .Values.detectors.execwhacker.metrics.enabled }}
+            - -url
+            - http://localhost:{{ .Values.detectors.execwhacker.metrics.port }}
+            {{- end }}
+            {{- if .Values.detectors.tcpflowkiller.metrics.enabled }}
+            - -url
+            - http://localhost:{{ .Values.detectors.tcpflowkiller.metrics.port }}
+            {{- end }}
+            - -prefix
+            - {{ .Values.detectors.combinedMetrics.metricsPrefix }}
+          image: "{{ .Values.detectors.combinedMetrics.image.repository }}:{{ .Values.detectors.combinedMetrics.image.tag }}"
+          {{- with .Values.image.pullPolicy }}
+          imagePullPolicy: {{ . }}
+          {{- end }}
+          {{- with .Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- . | toYaml | nindent 12 }}
+          {{- end }}
+          name: combined-metrics
+          ports:
+            - containerPort: {{ .Values.detectors.combinedMetrics.port }}
+              protocol: TCP
+          {{- with .Values.detectors.combinedMetrics.resources }}
+          resources:
+            {{- . | toYaml | nindent 12 }}
+          {{- end }}
+          {{- with .Values.containerSecurityContext }}
+          securityContext:
+            {{- . | toYaml | nindent 12 }}
+          {{- end }}
       {{- end }}
       hostPID: true
       initContainers:
