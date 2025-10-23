@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 # Heavily influenced by https://github.com/iovisor/bcc/blob/3f5e402bcadf44ce0250864db52673bf7317797b/tools/tcpconnect.py
 
+import json
 import math
 import os
 import signal
+import threading
+import time
 from enum import Enum
 from functools import partial
 from glob import glob
@@ -12,6 +15,7 @@ from logging import DEBUG, INFO
 from pathlib import Path
 from socket import AF_INET6, inet_ntop
 from struct import pack
+from wsgiref.simple_server import make_server
 
 import structlog
 from bcc import BPF
@@ -23,9 +27,9 @@ from lookup_container import (
     lookup_container_details_crictl,
     lookup_container_details_docker,
 )
-from prometheus_client import Counter, Histogram, start_http_server
+from prometheus_client import Counter, Histogram, make_wsgi_app
 from psutil import NoSuchProcess, Process
-from traitlets import Bool, Dict, Integer, List, Unicode
+from traitlets import Bool, Dict, Float, Integer, List, Unicode
 from traitlets.config import Application
 
 
@@ -63,6 +67,12 @@ log_and_kill_histogram = Histogram(
 
 
 class FlowKiller(Application):
+
+    # Fractional seconds from an arbitrary reference point
+    # https://docs.python.org/3/library/time.html#time.monotonic
+    alive = Float(0, help="Last alive check")
+
+    poll_interval = Integer(1, help="Polling interval in seconds")
 
     config_file = Unicode("", help="Configuration file").tag(config=True)
 
@@ -305,6 +315,29 @@ class FlowKiller(Application):
             daddr = IPv6Address(inet_ntop(AF_INET6, event.daddr))
         self.handle_connection(event.pid, saddr, event.lport, daddr, event.dport)
 
+    def wsgi_app_wrapper(self, environ, start_response):
+        """
+        Extends the built-in prometheus metrics server to include a
+        /health endpoint
+        """
+        # https://github.com/prometheus/client_python/blob/v0.23.1/prometheus_client/exposition.py#L124
+
+        if environ['REQUEST_METHOD'] == "GET" and environ.get("PATH_INFO") == "/health":
+            headers = [("Content-type", "text/javascript; charset=utf-8")]
+            age = time.monotonic() - self.alive
+            if age > self.poll_interval * 2:
+                status = "503 Service Unavailable"
+                body = json.dumps({"status": "failed", "age": age})
+            else:
+                status = "200 OK"
+                body = json.dumps({"status": "ok"})
+            start_response(status, headers)
+            return [body.encode()]
+
+        # Let prometheus_client handle everything else
+        prometheus_app = make_wsgi_app()
+        return prometheus_app(environ, start_response)
+
     def start(self):
         self.log.info("Compiling and loading BPF program...")
         bpf_text = (Path(__file__).parent / "flowkiller.bpf.c").read_text()
@@ -318,12 +351,16 @@ class FlowKiller(Application):
         b["ipv6_events"].open_perf_buffer(partial(self.handle_event, "ipv6_events", b))
 
         if self.metrics_port:
-            start_http_server(self.metrics_port)
+            httpd = make_server("", self.metrics_port, self.wsgi_app_wrapper)
+            t = threading.Thread(target=httpd.serve_forever)
+            t.daemon = True
+            t.start()
 
         self.log.info("Watching for processes we don't like...")
         while True:
             try:
-                b.perf_buffer_poll()
+                self.alive = time.monotonic()
+                b.perf_buffer_poll(self.poll_interval * 1000)
             except KeyboardInterrupt:
                 exit()
 

@@ -172,6 +172,13 @@ spec:
           imagePullSecrets:
             {{- . | toYaml | nindent 12 }}
           {{- end }}
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /health
+              port: metrics
+              scheme: HTTP
+            periodSeconds: 10
           name: flowkiller
           {{- if .Values.detectors.tcpflowkiller.metrics.enabled }}
           ports:
