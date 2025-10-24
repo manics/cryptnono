@@ -54,10 +54,7 @@ detectors:
     # Optional environment variables
     env: {}
     metrics:
-      enabled: false
       port: 12121
-      # Add prometheus annotations to the pods
-      prometheusScrape: true
     threadpoolSize: 10
     # Host absolute path to containerd.sock
     containerdHostPath:
@@ -91,17 +88,17 @@ detectors:
     # Metrics aren't implemented
     # https://github.com/cryptnono/cryptnono/issues/50
     metrics:
-      enabled: false
       port: 12122
-      # Add prometheus annotations to the pods
-      prometheusScrape: true
-  combinedMetrics:
-    # Serve merged metrics on this port, use this if you want to scrape
-    # metrics for both execwhacker and tcpflowkiller
+  metrics:
+    # Enable Prometheus metrics for all detectors
     enabled: false
-    port: 12123
+    # Serve merged metrics on this port
+    port: 12120
     resources: {}
     image:
       repository: ghcr.io/manics/prometheus-metrics-combiner
       tag: main
+    # Only serve metrics prefixed with this
     metricsPrefix: cryptnono
+    # Add Prometheus annotations to the pod
+    prometheusScrape: true

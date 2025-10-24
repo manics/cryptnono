@@ -1,6 +1,3 @@
-{{- $prometheusExecwhacker := and .Values.detectors.execwhacker.enabled .Values.detectors.execwhacker.metrics.enabled .Values.detectors.execwhacker.metrics.prometheusScrape }}
-{{- $prometheusFlowkiller := and .Values.detectors.tcpflowkiller.enabled .Values.detectors.tcpflowkiller.metrics.enabled .Values.detectors.tcpflowkiller.metrics.prometheusScrape }}
-{{- $prometheusCombined := .Values.detectors.combinedMetrics.enabled }}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -17,15 +14,9 @@ spec:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
         checksum/config-flowkiller: {{ include (print $.Template.BasePath "/configmap-flowkiller.yaml") . | sha256sum }}
-        {{- if or $prometheusExecwhacker $prometheusFlowkiller $prometheusCombined }}
+        {{- if and .Values.detectors.metrics.enabled .Values.detectors.metrics.prometheusScrape }}
         prometheus.io/scrape: "true"
-        {{- if $prometheusCombined }}
-        prometheus.io/port: "{{ .Values.detectors.combinedMetrics.port }}"
-        {{- else if $prometheusExecwhacker }}
-        prometheus.io/port: "{{ .Values.detectors.execwhacker.metrics.port }}"
-        {{- else }}
-        prometheus.io/port: "{{ .Values.detectors.tcpflowkiller.metrics.port }}"
-        {{- end }}
+        prometheus.io/port: "{{ .Values.detectors.metrics.port }}"
         prometheus.io/path: "/metrics"
         {{- end }}
         {{- with .Values.podAnnotations }}
@@ -176,7 +167,6 @@ spec:
           {{- if .Values.detectors.tcpflowkiller.metrics.enabled }}
           ports:
             - containerPort: {{ .Values.detectors.tcpflowkiller.metrics.port }}
-              name: metrics
               protocol: TCP
           {{ end}}
           {{- with .Values.detectors.tcpflowkiller.resources }}
@@ -214,21 +204,21 @@ spec:
               readOnly: true
             {{- end }}
       {{- end }}
-      {{- if $prometheusCombined }}
+      {{- if .Values.detectors.metrics.enabled }}
         - args:
             - -port
-            - "{{ .Values.detectors.combinedMetrics.port }}"
-            {{- if .Values.detectors.execwhacker.metrics.enabled }}
+            - "{{ .Values.detectors.metrics.port }}"
+            {{- if .Values.detectors.execwhacker.enabled }}
             - -url
             - http://localhost:{{ .Values.detectors.execwhacker.metrics.port }}
             {{- end }}
-            {{- if .Values.detectors.tcpflowkiller.metrics.enabled }}
+            {{- if .Values.detectors.tcpflowkiller.enabled }}
             - -url
             - http://localhost:{{ .Values.detectors.tcpflowkiller.metrics.port }}
             {{- end }}
             - -prefix
-            - {{ .Values.detectors.combinedMetrics.metricsPrefix }}
-          image: "{{ .Values.detectors.combinedMetrics.image.repository }}:{{ .Values.detectors.combinedMetrics.image.tag }}"
+            - {{ .Values.detectors.metrics.metricsPrefix }}
+          image: "{{ .Values.detectors.metrics.image.repository }}:{{ .Values.detectors.metrics.image.tag }}"
           {{- with .Values.image.pullPolicy }}
           imagePullPolicy: {{ . }}
           {{- end }}
@@ -238,9 +228,9 @@ spec:
           {{- end }}
           name: combined-metrics
           ports:
-            - containerPort: {{ .Values.detectors.combinedMetrics.port }}
+            - containerPort: {{ .Values.detectors.metrics.port }}
               protocol: TCP
-          {{- with .Values.detectors.combinedMetrics.resources }}
+          {{- with .Values.detectors.metrics.resources }}
           resources:
             {{- . | toYaml | nindent 12 }}
           {{- end }}
