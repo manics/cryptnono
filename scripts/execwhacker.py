@@ -470,12 +470,13 @@ def main():
 
     # initialize BPF
     logging.info("Compiling and loading BPF program...")
-    with open(os.path.join(os.path.dirname(__file__), "execwhacker.bpf.c")) as f:
+    bpf_dir = os.path.dirname(os.path.abspath(__file__))
+    with open(os.path.join(bpf_dir, "execwhacker.bpf.c")) as f:
         bpf_text = f.read()
 
     # FIXME: Investigate what exactly happens when this is different
     bpf_text = bpf_text.replace("MAXARG", args.max_args)
-    b = BPF(text=bpf_text)
+    b = BPF(text=bpf_text, cflags=[f"-I{bpf_dir}", "-fms-extensions"])
     execve_fnname = b.get_syscall_fnname("execve")
     b.attach_kprobe(event=execve_fnname, fn_name="syscall__execve")
     b.attach_kretprobe(event=execve_fnname, fn_name="do_ret_sys_execve")

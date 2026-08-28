@@ -1,21 +1,24 @@
 #!/usr/bin/env python3
-# Run the right version of monero.bt depending on linux headers
+# Run the right version of monero.bt depending on kernel version
 # https://github.com/cryptnono/cryptnono/pull/38
 
 import platform
+import re
 from os import execl
-from pathlib import Path
 
-# Check for the presence of a linux header only present on older kernels e.g.
-# /usr/src/kernels/5.10.225-213.878.amzn2.x86_64/arch/x86/include/asm/fpu/internal.h
-# Note it's not enough to check for the presence of a newer header (api.h)
 machine = platform.machine()
-if machine == "x86_64":
-    fpu_internal = list(Path("/").glob("usr/src/*/arch/x86/include/asm/fpu/internal.h"))
-else:
+if machine != "x86_64":
     raise NotImplementedError(f"Architecture {machine} not supported")
-if len(fpu_internal):
-    v = "v1"
+
+# Linux 5.14 refactored struct fpu (asm/fpu/internal.h -> asm/fpu/api.h)
+release = platform.release()
+match = re.match(r"^(\d+)\.(\d+)", release)
+if match:
+    major, minor = int(match.group(1)), int(match.group(2))
+    if (major, minor) < (5, 14):
+        v = "v1"
+    else:
+        v = "v2"
 else:
     v = "v2"
 

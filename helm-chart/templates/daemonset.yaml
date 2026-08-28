@@ -97,12 +97,6 @@ spec:
             - mountPath: /config
               name: config-execwhacker
               readOnly: true
-            - mountPath: /lib/modules
-              name: modules-dir
-              readOnly: true
-            - mountPath: /usr/src/
-              name: linux-headers-generated
-              readOnly: true
             {{- if or .Values.detectors.execwhacker.containerdHostPath .Values.detectors.execwhacker.dockerHostPath }}
             - mountPath: /host
               name: host-rootfs
@@ -136,15 +130,6 @@ spec:
           volumeMounts:
             - mountPath: /sys
               name: sys
-              readOnly: true
-            - mountPath: /lib/modules
-              name: modules-dir
-              readOnly: true
-            - mountPath: /lib/modules.host
-              name: modules-host
-              readOnly: true
-            - mountPath: /usr/src/
-              name: linux-headers-generated
               readOnly: true
         {{- end }}
         {{- if and .Values.detectors.tcpflowkiller.enabled }}
@@ -204,12 +189,6 @@ spec:
               readOnly: true
               subPath: {{ $value }}
             {{- end }}
-            - mountPath: /lib/modules
-              name: modules-dir
-              readOnly: true
-            - mountPath: /usr/src/
-              name: linux-headers-generated
-              readOnly: true
             {{- if or .Values.detectors.tcpflowkiller.containerdHostPath .Values.detectors.tcpflowkiller.dockerHostPath }}
             - mountPath: /host
               name: host-rootfs
@@ -246,29 +225,6 @@ spec:
               readOnly: true
         {{- end }}
       hostPID: true
-      initContainers:
-        # fetch linux kernel headers, needed for bcc to run properly
-        - name: fetch-kernel-headers
-          {{- with .Values.fetchKernelHeaders.image }}
-          image: "{{ .repository }}:{{ .tag }}"
-          {{- end }}
-          {{- with .Values.fetchKernelHeaders.image.pullPolicy }}
-          imagePullPolicy: {{ . }}
-          {{- end }}
-          resources: {{ .Values.fetchKernelHeaders.resources | toJson }}
-          volumeMounts:
-            - mountPath: /etc/lsb-release.host
-              name: lsb-release
-              readOnly: true
-            - mountPath: /etc/os-release.host
-              name: os-release
-              readOnly: true
-            - mountPath: /lib/modules
-              name: modules-dir
-            - mountPath: /usr/src/
-              name: linux-headers-generated
-            - mountPath: /boot.host
-              name: boot-host
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- . | toYaml | nindent 8 }}
@@ -310,30 +266,8 @@ spec:
           name: flowkiller-{{ $key }}
         {{- end }}
         - hostPath:
-            path: /usr
-          name: usr-host
-        - hostPath:
-            path: /lib/modules
-          name: modules-host
-        - hostPath:
             path: /sys
           name: sys
-        - hostPath:
-            path: /etc/lsb-release
-          name: lsb-release
-        - hostPath:
-            path: /etc/os-release
-          name: os-release
-        - hostPath:
-            path: /tmp/cryptnono/linux-headers/modules_dir
-          name: modules-dir
-        - hostPath:
-            # Put this in /tmp on the host, so it is regenerated  on restart
-            path: /tmp/cryptnono/linux-headers/generated
-          name: linux-headers-generated
-        - hostPath:
-            path: /boot
-          name: boot-host
         {{- if or .Values.detectors.execwhacker.containerdHostPath .Values.detectors.execwhacker.dockerHostPath .Values.detectors.tcpflowkiller.containerdHostPath .Values.detectors.tcpflowkiller.dockerHostPath }}
         - hostPath:
             path: /

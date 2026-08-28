@@ -315,8 +315,9 @@ class FlowKiller(Application):
 
     def start(self):
         self.log.info("Compiling and loading BPF program...")
-        bpf_text = (Path(__file__).parent / "flowkiller.bpf.c").read_text()
-        b = BPF(text=bpf_text)
+        bpf_dir = Path(__file__).resolve().parent
+        bpf_text = (bpf_dir / "flowkiller.bpf.c").read_text()
+        b = BPF(text=bpf_text, cflags=[f"-I{bpf_dir}", "-fms-extensions"])
         b.attach_kprobe(event="tcp_v4_connect", fn_name="trace_connect_entry")
         b.attach_kprobe(event="tcp_v6_connect", fn_name="trace_connect_entry")
         b.attach_kretprobe(event="tcp_v4_connect", fn_name="trace_connect_v4_return")

@@ -6,12 +6,7 @@ Licensed as GPLv3 as that is the license of the original bpftrace program.
 
 ## Limitations
 
-Some kernel headers are required!
-Because the kernel headers are prepared during runtime,
-cryptnono is only supported in some hosts, including
-
-- Debian
-- Ubuntu
+A Linux kernel with [BPF Type Format (BTF)](https://docs.kernel.org/bpf/btf.html) support (`CONFIG_DEBUG_INFO_BTF=y`) is required (standard in Linux 5.2+). BPF CO-RE (Compile Once – Run Everywhere) is used via `vmlinux.h`, eliminating the need to install or fetch kernel headers at runtime.
 
 [Windows Subsystem for Linux](https://learn.microsoft.com/en-us/windows/wsl/) is NOT supported!
 
@@ -94,14 +89,9 @@ This does mean there is the small risk of false positives affecting system criti
 processes (say, in `kube-system`). So catch that in testing :D In my experience, this
 is not super likely unless you tune the config badly.
 
-## Setting up kernel headers
+## BPF CO-RE (Compile Once – Run Everywhere)
 
-Since `bcc` does not support [BTF](https://docs.kernel.org/bpf/btf.html) at this point,
-we need to make sure that header files for the appropriate kernel version of the *host*
-are avaialable for our containers under `/lib/modules`. Since we don't know the kernel
-version of the host node until runtime, we can't bake this into the container image.
-Instead, we fetch and set this up via an `initContainer` graciously stolen from the
-[kubectl-trace](https://github.com/iovisor/kubectl-trace/) project.
+`cryptnono` uses BPF CO-RE via `scripts/vmlinux.h` and the host kernel's BTF (`/sys/kernel/btf/vmlinux`). This avoids the need to install or mount Linux kernel header packages into the containers at runtime.
 
 ## Detectors
 

@@ -56,9 +56,7 @@ jobs:
           docker run -d --name execwhacker \
             --privileged \
             --pid=host \
-            -v /usr/src:/usr/src:ro \
             -v /sys:/sys:ro \
-            -v /lib/modules:/lib/modules:ro \
             -v $PWD/example:/example \
             -p12121 \
             cryptnono:test \
@@ -70,9 +68,7 @@ jobs:
           docker run -d --name tcpflowkiller \
             --privileged \
             --pid=host \
-            -v /usr/src:/usr/src:ro \
             -v /sys:/sys:ro \
-            -v /lib/modules:/lib/modules:ro \
             -v $PWD/example:/example \
             -p12122 \
             cryptnono:test \
@@ -116,8 +112,6 @@ jobs:
         with:
           # chartpress requires the full history
           fetch-depth: 0
-          # We vendor kubectl-trace as a submodule to build the fetch-kernel-headers image
-          submodules: recursive
 
       - name: Generate values.schema.json from values.schema.yaml
         run: yq -o json values.schema.yaml > values.schema.json

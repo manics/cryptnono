@@ -4,9 +4,12 @@
 * - Switched to using a ring buffer
 * - Remove all ppid and uid filtering present in the original code
 */
-#include <uapi/linux/ptrace.h>
-#include <linux/sched.h>
-#include <linux/fs.h>
+#include "vmlinux.h"
+
+#ifndef __user
+#define __user
+#endif
+
 
 #define ARGSIZE  128
 

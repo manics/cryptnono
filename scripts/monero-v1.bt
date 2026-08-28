@@ -19,8 +19,6 @@
 
 // See https://blog.px.dev/detect-monero-miners/ for a description of what
 // this program actually does.
-#include <asm/fpu/internal.h>
-#include <asm/fpu/types.h>
 tracepoint:x86_fpu:x86_fpu_regs_deactivated
 {
     $f = (struct fpu *)args->fpu;

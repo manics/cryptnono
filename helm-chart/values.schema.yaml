@@ -3,7 +3,6 @@ type: object
 additionalProperties: false
 required:
   - image
-  - fetchKernelHeaders
   - detectors
   - metrics
 properties:
@@ -55,15 +54,6 @@ properties:
   priorityClassName:
     type: string
 
-  fetchKernelHeaders:
-    type: object
-    additionalProperties: false
-    properties:
-      image: *image-spec
-      resources: &resources-spec
-        type: object
-        additionalProperties: true
-
   detectors:
     type: object
     additionalProperties: false
@@ -83,7 +73,9 @@ properties:
             type: boolean
           debug:
             type: boolean
-          resources: *resources-spec
+          resources: &resources-spec
+            type: object
+            additionalProperties: true
           configs:
             type: object
             description: Dictionary of names to configurations, this allows multiple configurations to be merged
